@@ -28,6 +28,7 @@ The inner loop happens inside each 5-minute training run. A neural network plays
 
 The AI agent in the outer loop never plays Connect Four, never watches games, and never learns strategy. It only sees the final win_rate number that comes out of `prepare.py` after each training run. Based on that single number, it decides whether the change it made to `train.py` was an improvement. The outer loop learns which blueprints produce the best inner-loop learners. The inner loop learns how to play Connect Four from that blueprint.
 
+## images
 
 ![Alt text](./architecture-karpathy.png) 
 
