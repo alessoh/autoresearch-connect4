@@ -203,6 +203,11 @@ The evaluation uses a fixed random seed (42) so that the random opponent plays t
 **REINFORCE as the baseline RL algorithm.** The simplest possible policy gradient method. The agent is expected to discover that more sophisticated approaches (PPO, replay buffers, curriculum learning, MCTS) produce better results. Starting simple gives the agent the most room to improve.
 
 
+## Contact
+
+- **Email:** [h.alesso@comcast.net]
+- **GitHub:** [https://github.com/alessoh]
+
 ## License
 
 MIT
