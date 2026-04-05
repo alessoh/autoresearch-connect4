@@ -42,6 +42,11 @@ The learning rate was also halved from 0.001 to 0.0005 for additional stability.
 
 ## How it works
 
+## Architecture
+
+![Alt text](./architecture-karpathy.png)
+![Alt text](./architecture-connect4.png)
+
 The repo has exactly three files that matter, the same three-file architecture as Karpathy's original.
 
 **`prepare.py`** is the immutable harness. In Karpathy's original, this file downloads text data, trains a tokenizer, provides a dataloader, and contains the sacred metric function `evaluate_bpb`. In this Connect Four version, `prepare.py` instead contains the Connect Four game engine (rules, board representation, legal move generation), a fixed suite of four opponents (random player, one-step-lookahead player, minimax depth 3, minimax depth 5), and the sacred metric function `evaluate_winrate` that plays 100 games against each opponent and computes a weighted overall win rate. This file is never modified during experimentation.
