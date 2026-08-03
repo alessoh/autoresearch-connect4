@@ -101,9 +101,10 @@ LOOP FOREVER:
 4. Run the experiment: `uv run train.py > run.log 2>&1` (redirect everything — do NOT use tee or let output flood your context)
 5. Read out the results: `grep "^win_rate:\|^peak_vram_mb:" run.log`
 6. If the grep output is empty, the run crashed. Run `tail -n 50 run.log` to read the Python stack trace and attempt a fix. If you can't get things to work after more than a few attempts, give up.
-7. Record the results in the tsv (NOTE: do not commit the results.tsv file, leave it untracked by git)
-8. If win_rate improved (higher), you "advance" the branch, keeping the git commit
-9. If win_rate is equal or worse, you git reset back to where you started
+7. Save the experiment log: `mkdir -p logs && cp run.log logs/$(git rev-parse --short HEAD).log` — this preserves the full output of every experiment so the human can review them later.
+8. Record the results in the tsv (NOTE: do not commit the results.tsv file or the logs directory, leave them untracked by git)
+9. If win_rate improved (higher), you "advance" the branch, keeping the git commit
+10. If win_rate is equal or worse, you git reset back to where you started
 
 The idea is that you are a completely autonomous researcher trying things out. If they work, keep. If they don't, discard. And you're advancing the branch so that you can iterate. If you feel like you're getting stuck in some way, you can rewind but you should probably do this very very sparingly (if ever).
 

@@ -28,11 +28,6 @@ The inner loop happens inside each 5-minute training run. A neural network plays
 
 The AI agent in the outer loop never plays Connect Four, never watches games, and never learns strategy. It only sees the final win_rate number that comes out of `prepare.py` after each training run. Based on that single number, it decides whether the change it made to `train.py` was an improvement. The outer loop learns which blueprints produce the best inner-loop learners. The inner loop learns how to play Connect Four from that blueprint.
 
-## Architecture
-
-![Alt text](./architecture-karpathy.png) 
-
-![Alt text](./architecture-connect4.png) 
 
 ## Project structure
 
@@ -40,9 +35,20 @@ The AI agent in the outer loop never plays Connect Four, never watches games, an
 prepare.py      — game engine, opponents, evaluate_winrate (do not modify)
 train.py        — neural network, RL training loop (agent modifies this)
 program.md      — agent instructions
-analysis.py     — reads results.tsv, generates progress chart
+analysis.py     — reads results.tsv, generates progress.png chart
+report.py       — reads results.tsv + logs/, generates report.md
 pyproject.toml  — dependencies
 README.md       — this file
+```
+
+Generated at runtime (untracked by git):
+
+```
+results.tsv     — experiment ledger (one row per experiment)
+logs/           — per-experiment full output (named by commit hash)
+run.log         — current experiment output (overwritten each cycle)
+report.md       — comprehensive morning-after report
+progress.png    — visual chart of win_rate over experiments
 ```
 
 
@@ -138,11 +144,34 @@ You can now close your laptop, go to sleep, or do anything else. The agent runs 
 
 ```bash
 cd autoresearch-connect4
+
+# Quick summary: see the experiment ledger
 cat results.tsv
+
+# Generate a comprehensive markdown report
+uv run report.py
+
+# Read the report
+cat report.md
+
+# Generate a visual progress chart
+uv run analysis.py
+
+# See the git history of kept improvements
 git log --oneline
+
+# Review a specific experiment's full training output
+ls logs/
+cat logs/<commit>.log
+
+# See exactly what train.py looked like at any kept experiment
+git show <commit>:train.py
+
+# See what changed between two experiments
+git diff <old_commit> <new_commit>
 ```
 
-The `results.tsv` file shows every experiment: what was tried, what win_rate was achieved, and whether the change was kept or discarded. The git log shows the lineage of every improvement that stuck.
+The `report.md` file is the most useful starting point. It summarizes the total number of experiments, the keep rate, the improvement timeline showing each kept change and its delta, the biggest single-step wins ranked by impact, any crashes with their error messages, and near-miss discards that came close to improving the win rate and might be worth revisiting. The `logs/` directory preserves the full training output of every experiment, named by commit hash, so you can dig into the per-opponent breakdown for any specific run.
 
 
 ## How evaluation works
