@@ -47,6 +47,8 @@ SEARCH_DEPTH = 6            # plies of full-width negamax when playing a move
 SEARCH_DISCOUNT = 0.99      # per-ply discount, so faster wins score higher
 SEARCH_PRIOR = 1e-3         # weight of the policy as a tiebreak between equals
 SEARCH_CHUNK = 65536        # leaves scored per value-head call (caps VRAM)
+SELF_PLAY_DEPTH = 2         # search depth used to play the training games
+SELF_PLAY_TEMP = 0.2        # temperature for sampling from the search scores
 
 # ---------------------------------------------------------------------------
 # Neural Network
@@ -64,52 +66,6 @@ def four_in_a_row(p):
     u = p[:, 3:6, 0:4] & p[:, 2:5, 1:5] & p[:, 1:4, 2:6] & p[:, 0:3, 3:7]
     return (h.any(-1).any(-1) | v.any(-1).any(-1)
             | d.any(-1).any(-1) | u.any(-1).any(-1))
-
-
-def tactical_bias(boards):
-    """
-    Exact two-ply tactics, vectorized over a batch of positions.
-
-    boards: (n, 6, 7) int8, mover-relative (+1 = player to move, -1 opponent).
-    Returns (n, 7) float32 to add to the policy logits:
-      +1e6  a move that wins immediately (play it)
-      +1e5  the only reply to an opponent's immediate win (block it)
-      -1e5  a move that lets the opponent win right on top of it
-      -1e9  illegal column
-    The policy still picks between equally-tactical moves, so this only
-    removes the blunders a bare policy net keeps making.
-    """
-    n = boards.shape[0]
-    heights = (boards != 0).sum(axis=1)                  # (n, 7)
-    legal = heights < BOARD_ROWS
-    landing = BOARD_ROWS - 1 - heights                   # (n, 7), <0 if full
-
-    rep = np.repeat(boards, BOARD_COLS, axis=0)          # (n*7, 6, 7)
-    flat = np.arange(n * BOARD_COLS)
-    cols = np.tile(np.arange(BOARD_COLS), n)
-    rows = np.clip(landing.reshape(-1), 0, BOARD_ROWS - 1)
-
-    mine = rep.copy()
-    mine[flat, rows, cols] = 1
-    win_now = four_in_a_row(mine == 1).reshape(n, BOARD_COLS) & legal
-
-    theirs = rep.copy()
-    theirs[flat, rows, cols] = -1
-    they_win = four_in_a_row(theirs == -1).reshape(n, BOARD_COLS) & legal
-
-    # After my move the square above it opens up for them (win_now is already
-    # computed, so `mine` can be reused in place)
-    above = mine
-    above[flat, np.clip(rows - 1, 0, BOARD_ROWS - 1), cols] = -1
-    gives_win = (four_in_a_row(above == -1).reshape(n, BOARD_COLS)
-                 & legal & (landing > 0))
-
-    bias = np.where(legal, 0.0, -1e9).astype(np.float32)
-    threatened = they_win.any(axis=1, keepdims=True)
-    bias = np.where(threatened & they_win, 1e5, bias)
-    bias = np.where(~threatened & gives_win, -1e5, bias)
-    bias = np.where(win_now, 1e6, bias)
-    return bias
 
 
 LIVE, LOST, DRAW = 0, 1, 2   # node status after the move that created it
@@ -134,18 +90,21 @@ def expand(boards):
     return -child, node_idx, col_idx, status
 
 
-def negamax_scores(model, root_board, depth=SEARCH_DEPTH):
+@torch.no_grad()
+def negamax_scores(model, roots, depth):
     """
-    Full-width negamax over the mover-relative board, kept entirely on the GPU:
-    every ply is one batch of array ops and every leaf at the final ply is
-    scored in a single value-head call. Terminal nodes are scored exactly, so
-    the search never misses a win or a forced loss inside the horizon.
-    root_board: (6, 7) int8 tensor, mover-relative, non-terminal.
-    Returns (7,) scores from the root mover's view; -inf for illegal columns.
+    Full-width negamax from many root positions at once, kept entirely on the
+    GPU: one ply is one batch of tensor ops, and every leaf at the final ply is
+    scored in one value-head call. Terminal nodes are scored exactly, so the
+    search never misses a win or a forced loss inside the horizon.
+
+    roots: (n, 6, 7) int8 tensor, mover-relative (+1 = player to move), all
+    non-terminal.
+    Returns (n, 7) move scores from each root mover's view, -inf for illegal.
     """
-    device = root_board.device
-    levels = [(root_board[None], None, None, torch.zeros(1, dtype=torch.long,
-                                                         device=device))]
+    device = roots.device
+    levels = [(roots, None, None, torch.zeros(len(roots), dtype=torch.long,
+                                              device=device))]
     for _ in range(depth):
         pb, _, _, pstat = levels[-1]
         live = torch.nonzero(pstat == LIVE, as_tuple=True)[0]
@@ -170,9 +129,9 @@ def negamax_scores(model, root_board, depth=SEARCH_DEPTH):
         values = torch.where(pstat == LOST, -1.0,
                              torch.where(pstat == DRAW, 0.0, best))
 
-    _, _, col, _ = levels[1]
-    scores = torch.full((BOARD_COLS,), -float("inf"), device=device)
-    scores[col] = -SEARCH_DISCOUNT * values
+    _, root_idx, col, _ = levels[1]
+    scores = torch.full((len(roots), BOARD_COLS), -float("inf"), device=device)
+    scores[root_idx, col] = -SEARCH_DISCOUNT * values
     return scores
 
 
@@ -222,13 +181,12 @@ class ConnectFourNet(nn.Module):
     @torch.no_grad()
     def forward(self, x):
         """
-        x: (1, 2, 6, 7) float tensor. Returns (1, 7) negamax scores, with the
-        policy mixed in at low weight to break ties between equal moves.
+        x: (batch, 2, 6, 7) float tensor. Returns (batch, 7) negamax scores,
+        with the policy mixed in at low weight to break ties between equals.
         """
-        board = (x[0, 0] - x[0, 1]).to(torch.int8)
-        scores = negamax_scores(self, board)
-        prior = F.softmax(self.policy_logits(x).squeeze(0), dim=0)
-        return (scores + SEARCH_PRIOR * prior).unsqueeze(0)
+        boards = (x[:, 0] - x[:, 1]).to(torch.int8)
+        scores = negamax_scores(self, boards, SEARCH_DEPTH)
+        return scores + SEARCH_PRIOR * F.softmax(self.policy_logits(x), dim=1)
 
     def policy_logits(self, x):
         """Raw policy logits, no tactical correction (used during self-play)."""
@@ -298,16 +256,17 @@ def collect_batch(model, device, num_games=GAMES_PER_BATCH):
 
             boards = [games[i].board for i in active]
             persps = [games[i].current_player for i in active]
-            x = torch.from_numpy(encode_boards(boards, persps)).to(device)
-            logits = model.policy_logits(x)
 
-            # Play the same tactically-corrected policy that evaluation uses:
-            # self-play games stay sharp instead of both sides overlooking
-            # wins, which also makes the value targets meaningful. The bias
-            # masks full columns too.
+            # Self-play moves come from the same search that plays evaluation,
+            # just shallower: one batched negamax covers every live game. The
+            # games stay sharp instead of both sides overlooking wins, so the
+            # outcomes the value head regresses are meaningful. Sampling at a
+            # low temperature keeps the games varied.
             rel = np.asarray(boards, dtype=np.int8) * np.asarray(persps, dtype=np.int8)[:, None, None]
-            bias = torch.from_numpy(tactical_bias(rel)).to(device)
-            cols = torch.multinomial(F.softmax(logits + bias, dim=1), 1).squeeze(1).tolist()
+            scores = negamax_scores(model, torch.from_numpy(rel).to(device),
+                                    SELF_PLAY_DEPTH)
+            cols = torch.multinomial(F.softmax(scores / SELF_PLAY_TEMP, dim=1),
+                                     1).squeeze(1).tolist()
 
             for j, i in enumerate(active):
                 g = games[i]
