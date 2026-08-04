@@ -45,11 +45,69 @@ DEVICE_BATCH_SIZE = 128     # max positions per forward pass during training
 # Neural Network
 # ---------------------------------------------------------------------------
 
+def four_in_a_row(p):
+    """p: (n, 6, 7) bool mask of one player's pieces -> (n,) bool, has a four."""
+    h = p[:, :, 0:4] & p[:, :, 1:5] & p[:, :, 2:6] & p[:, :, 3:7]
+    v = p[:, 0:3] & p[:, 1:4] & p[:, 2:5] & p[:, 3:6]
+    d = p[:, 0:3, 0:4] & p[:, 1:4, 1:5] & p[:, 2:5, 2:6] & p[:, 3:6, 3:7]
+    u = p[:, 3:6, 0:4] & p[:, 2:5, 1:5] & p[:, 1:4, 2:6] & p[:, 0:3, 3:7]
+    return (h.any(axis=(1, 2)) | v.any(axis=(1, 2))
+            | d.any(axis=(1, 2)) | u.any(axis=(1, 2)))
+
+
+def tactical_bias(boards):
+    """
+    Exact two-ply tactics, vectorized over a batch of positions.
+
+    boards: (n, 6, 7) int8, mover-relative (+1 = player to move, -1 opponent).
+    Returns (n, 7) float32 to add to the policy logits:
+      +1e6  a move that wins immediately (play it)
+      +1e5  the only reply to an opponent's immediate win (block it)
+      -1e5  a move that lets the opponent win right on top of it
+      -1e9  illegal column
+    The policy still picks between equally-tactical moves, so this only
+    removes the blunders a bare policy net keeps making.
+    """
+    n = boards.shape[0]
+    heights = (boards != 0).sum(axis=1)                  # (n, 7)
+    legal = heights < BOARD_ROWS
+    landing = BOARD_ROWS - 1 - heights                   # (n, 7), <0 if full
+
+    rep = np.repeat(boards, BOARD_COLS, axis=0)          # (n*7, 6, 7)
+    flat = np.arange(n * BOARD_COLS)
+    cols = np.tile(np.arange(BOARD_COLS), n)
+    rows = np.clip(landing.reshape(-1), 0, BOARD_ROWS - 1)
+
+    mine = rep.copy()
+    mine[flat, rows, cols] = 1
+    win_now = four_in_a_row(mine == 1).reshape(n, BOARD_COLS) & legal
+
+    theirs = rep.copy()
+    theirs[flat, rows, cols] = -1
+    they_win = four_in_a_row(theirs == -1).reshape(n, BOARD_COLS) & legal
+
+    # After my move the square above it opens up for them (win_now is already
+    # computed, so `mine` can be reused in place)
+    above = mine
+    above[flat, np.clip(rows - 1, 0, BOARD_ROWS - 1), cols] = -1
+    gives_win = (four_in_a_row(above == -1).reshape(n, BOARD_COLS)
+                 & legal & (landing > 0))
+
+    bias = np.where(legal, 0.0, -1e9).astype(np.float32)
+    threatened = they_win.any(axis=1, keepdims=True)
+    bias = np.where(threatened & they_win, 1e5, bias)
+    bias = np.where(~threatened & gives_win, -1e5, bias)
+    bias = np.where(win_now, 1e6, bias)
+    return bias
+
+
 class ConnectFourNet(nn.Module):
     """
     Policy-value network for Connect Four.
     Input: (batch, 2, 6, 7) — two channels (own pieces, opponent pieces).
-    Output: (batch, 7) — logits over columns (policy head).
+    Output: (batch, 7) — logits over columns (policy head), with an exact
+    two-ply tactical bias added so the greedy player never misses a win or
+    an immediate block.
 
     The value head predicts the game outcome in [-1, 1] from the perspective
     of the player to move. forward() deliberately returns only the policy
@@ -90,11 +148,16 @@ class ConnectFourNet(nn.Module):
     def forward(self, x):
         """
         x: (batch, 2, 6, 7) float tensor.
-        Returns: (batch, 7) logits over columns.
+        Returns: (batch, 7) tactically-corrected logits over columns.
         """
-        features = self.backbone(x)
-        logits = self.policy_head(features)
-        return logits
+        logits = self.policy_logits(x)
+        boards = (x[:, 0] - x[:, 1]).to(torch.int8).cpu().numpy()
+        bias = torch.from_numpy(tactical_bias(boards)).to(logits.device)
+        return logits + bias
+
+    def policy_logits(self, x):
+        """Raw policy logits, no tactical correction (used during self-play)."""
+        return self.policy_head(self.backbone(x))
 
     def policy_value(self, x):
         """Returns ((batch, 7) logits, (batch,) values in [-1, 1])."""
@@ -161,7 +224,7 @@ def collect_batch(model, device, num_games=GAMES_PER_BATCH):
             boards = [games[i].board for i in active]
             persps = [games[i].current_player for i in active]
             x = torch.from_numpy(encode_boards(boards, persps)).to(device)
-            logits = model(x)
+            logits = model.policy_logits(x)
 
             # Mask full columns (a column is full when its top cell is taken)
             top = np.asarray([b[0] for b in boards], dtype=np.int8)
