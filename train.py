@@ -226,11 +226,13 @@ def collect_batch(model, device, num_games=GAMES_PER_BATCH):
             x = torch.from_numpy(encode_boards(boards, persps)).to(device)
             logits = model.policy_logits(x)
 
-            # Mask full columns (a column is full when its top cell is taken)
-            top = np.asarray([b[0] for b in boards], dtype=np.int8)
-            mask = np.where(top == 0, 0.0, -1e9).astype(np.float32)
-            logits = logits + torch.from_numpy(mask).to(device)
-            cols = torch.multinomial(F.softmax(logits, dim=1), 1).squeeze(1).tolist()
+            # Play the same tactically-corrected policy that evaluation uses:
+            # self-play games stay sharp instead of both sides overlooking
+            # wins, which also makes the value targets meaningful. The bias
+            # masks full columns too.
+            rel = np.asarray(boards, dtype=np.int8) * np.asarray(persps, dtype=np.int8)[:, None, None]
+            bias = torch.from_numpy(tactical_bias(rel)).to(device)
+            cols = torch.multinomial(F.softmax(logits + bias, dim=1), 1).squeeze(1).tolist()
 
             for j, i in enumerate(active):
                 g = games[i]
