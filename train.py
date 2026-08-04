@@ -29,12 +29,13 @@ CONV_CHANNELS = 64          # channels per conv layer
 FC_HIDDEN = 128             # hidden units in fully connected layer
 
 # Training
-LEARNING_RATE = 0.001       # optimizer learning rate
+LEARNING_RATE = 0.0005      # optimizer learning rate
 WEIGHT_DECAY = 1e-4         # L2 regularization
 BATCH_SIZE = 64             # batch size for training updates
 GAMMA = 0.99                # discount factor for returns
 EXPLORATION_RATE = 0.15     # fraction of random moves during self-play
-SELF_PLAY_RATIO = 1.0       # fraction of games that are self-play (rest vs opponents)
+SELF_PLAY_RATIO = 0.7       # fraction of games that are self-play (rest vs opponents)
+ENTROPY_COEF = 0.03         # entropy bonus to prevent policy collapse
 GAMES_PER_BATCH = 64        # games to play before each training update
 DEVICE_BATCH_SIZE = 128     # max positions per forward pass during training
 
@@ -212,9 +213,10 @@ def train_step(model, optimizer, batch_data, device):
 
     model.train()
 
-    # Compute baseline (mean reward)
-    rewards = [d[2] for d in batch_data]
-    baseline = sum(rewards) / len(rewards)
+    # Compute baseline (mean reward) and normalize advantages
+    rewards = torch.tensor([d[2] for d in batch_data], dtype=torch.float32)
+    baseline = rewards.mean().item()
+    adv_std = rewards.std().item() + 1e-8  # prevent division by zero
 
     # Process in mini-batches to manage memory
     total_loss = 0.0
@@ -230,8 +232,22 @@ def train_step(model, optimizer, batch_data, device):
         log_probs = F.log_softmax(logits, dim=1)
         action_log_probs = log_probs.gather(1, actions.unsqueeze(1)).squeeze(1)
 
-        advantage = rews - baseline
-        loss = -(action_log_probs * advantage).mean()
+        # Clip log_probs: exploration forces moves the model hates, creating
+        # extreme log_probs (e.g. -15). Clamping prevents any single sample
+        # from dominating the gradient.
+        action_log_probs = action_log_probs.clamp(min=-5.0)
+
+        # Normalized and clipped advantage: prevents loss from diverging
+        advantage = (rews - baseline) / adv_std
+        advantage = advantage.clamp(-3.0, 3.0)
+
+        # Policy gradient loss
+        pg_loss = -(action_log_probs * advantage).mean()
+
+        # Entropy bonus: prevents policy from collapsing to a single action
+        probs = F.softmax(logits, dim=1)
+        entropy = -(probs * log_probs).sum(dim=1).mean()
+        loss = pg_loss - ENTROPY_COEF * entropy
 
         optimizer.zero_grad()
         loss.backward()
@@ -270,6 +286,7 @@ optimizer = optim.AdamW(
 print(f"Time budget: {TIME_BUDGET}s")
 print(f"Self-play ratio: {SELF_PLAY_RATIO}")
 print(f"Exploration rate: {EXPLORATION_RATE}")
+print(f"Entropy coef: {ENTROPY_COEF}")
 print(f"Games per batch: {GAMES_PER_BATCH}")
 print()
 
@@ -341,3 +358,4 @@ print(f"num_params:        {num_params}")
 print(f"conv_layers:       {NUM_CONV_LAYERS}")
 print(f"conv_channels:     {CONV_CHANNELS}")
 print(f"fc_hidden:         {FC_HIDDEN}")
+print(f"entropy_coef:      {ENTROPY_COEF}")
