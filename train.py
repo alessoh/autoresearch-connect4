@@ -41,18 +41,29 @@ VALUE_COEF = 0.5            # weight of the value-head regression loss
 GAMES_PER_BATCH = 64        # games to play before each training update
 DEVICE_BATCH_SIZE = 128     # max positions per forward pass during training
 
+# Evaluation-time search (must be even: an odd depth leaves the leaves scored
+# right after our own move, which makes the search optimistic and much weaker)
+SEARCH_DEPTH = 6            # plies of full-width negamax when playing a move
+SEARCH_DISCOUNT = 0.99      # per-ply discount, so faster wins score higher
+SEARCH_PRIOR = 1e-3         # weight of the policy as a tiebreak between equals
+SEARCH_CHUNK = 65536        # leaves scored per value-head call (caps VRAM)
+
 # ---------------------------------------------------------------------------
 # Neural Network
 # ---------------------------------------------------------------------------
 
 def four_in_a_row(p):
-    """p: (n, 6, 7) bool mask of one player's pieces -> (n,) bool, has a four."""
+    """
+    p: (n, 6, 7) bool mask of one player's pieces -> (n,) bool, has a four.
+    Written so it runs unchanged on numpy arrays (self-play, on CPU) and on
+    torch tensors (evaluation search, on GPU).
+    """
     h = p[:, :, 0:4] & p[:, :, 1:5] & p[:, :, 2:6] & p[:, :, 3:7]
     v = p[:, 0:3] & p[:, 1:4] & p[:, 2:5] & p[:, 3:6]
     d = p[:, 0:3, 0:4] & p[:, 1:4, 1:5] & p[:, 2:5, 2:6] & p[:, 3:6, 3:7]
     u = p[:, 3:6, 0:4] & p[:, 2:5, 1:5] & p[:, 1:4, 2:6] & p[:, 0:3, 3:7]
-    return (h.any(axis=(1, 2)) | v.any(axis=(1, 2))
-            | d.any(axis=(1, 2)) | u.any(axis=(1, 2)))
+    return (h.any(-1).any(-1) | v.any(-1).any(-1)
+            | d.any(-1).any(-1) | u.any(-1).any(-1))
 
 
 def tactical_bias(boards):
@@ -101,13 +112,76 @@ def tactical_bias(boards):
     return bias
 
 
+LIVE, LOST, DRAW = 0, 1, 2   # node status after the move that created it
+
+
+def expand(boards):
+    """
+    One ply of full-width expansion, vectorized on whatever device `boards`
+    lives on.
+    boards: (n, 6, 7) int8 mover-relative, all non-terminal.
+    Returns (children, parent_index, column, status); children are again
+    mover-relative, and LOST means the child's mover has already lost.
+    """
+    heights = (boards != 0).sum(1)
+    node_idx, col_idx = torch.nonzero(heights < BOARD_ROWS, as_tuple=True)
+    child = boards[node_idx].clone()
+    rows = BOARD_ROWS - 1 - heights[node_idx, col_idx]
+    child[torch.arange(child.shape[0], device=boards.device), rows, col_idx] = 1
+    win = four_in_a_row(child == 1)
+    full = (child != 0).all(-1).all(-1)
+    status = torch.where(win, LOST, torch.where(full, DRAW, LIVE))
+    return -child, node_idx, col_idx, status
+
+
+def negamax_scores(model, root_board, depth=SEARCH_DEPTH):
+    """
+    Full-width negamax over the mover-relative board, kept entirely on the GPU:
+    every ply is one batch of array ops and every leaf at the final ply is
+    scored in a single value-head call. Terminal nodes are scored exactly, so
+    the search never misses a win or a forced loss inside the horizon.
+    root_board: (6, 7) int8 tensor, mover-relative, non-terminal.
+    Returns (7,) scores from the root mover's view; -inf for illegal columns.
+    """
+    device = root_board.device
+    levels = [(root_board[None], None, None, torch.zeros(1, dtype=torch.long,
+                                                         device=device))]
+    for _ in range(depth):
+        pb, _, _, pstat = levels[-1]
+        live = torch.nonzero(pstat == LIVE, as_tuple=True)[0]
+        child, par, col, cstat = expand(pb[live])
+        levels.append((child, live[par], col, cstat))
+
+    # Deepest ply: exact for finished games, value head for the rest
+    boards, _, _, status = levels[depth]
+    values = torch.where(status == LOST, -1.0, 0.0)
+    live = torch.nonzero(status == LIVE, as_tuple=True)[0]
+    for i in range(0, live.numel(), SEARCH_CHUNK):    # chunked to bound VRAM
+        idx = live[i:i + SEARCH_CHUNK]
+        b = boards[idx]
+        values[idx] = model.value(torch.stack((b == 1, b == -1), dim=1).float()).float()
+
+    # Negamax back-up, stopping at ply 1 to keep one score per root move
+    for d in range(depth - 1, 0, -1):
+        _, _, _, pstat = levels[d]
+        _, par, _, _ = levels[d + 1]
+        best = torch.full((pstat.shape[0],), -float("inf"), device=device)
+        best = best.scatter_reduce(0, par, -SEARCH_DISCOUNT * values, "amax")
+        values = torch.where(pstat == LOST, -1.0,
+                             torch.where(pstat == DRAW, 0.0, best))
+
+    _, _, col, _ = levels[1]
+    scores = torch.full((BOARD_COLS,), -float("inf"), device=device)
+    scores[col] = -SEARCH_DISCOUNT * values
+    return scores
+
+
 class ConnectFourNet(nn.Module):
     """
     Policy-value network for Connect Four.
     Input: (batch, 2, 6, 7) — two channels (own pieces, opponent pieces).
-    Output: (batch, 7) — logits over columns (policy head), with an exact
-    two-ply tactical bias added so the greedy player never misses a win or
-    an immediate block.
+    Output: (batch, 7) — negamax scores over columns, so the greedy player of
+    prepare.play_game plays the search rather than the bare policy.
 
     The value head predicts the game outcome in [-1, 1] from the perspective
     of the player to move. forward() deliberately returns only the policy
@@ -145,15 +219,16 @@ class ConnectFourNet(nn.Module):
             nn.Tanh(),
         )
 
+    @torch.no_grad()
     def forward(self, x):
         """
-        x: (batch, 2, 6, 7) float tensor.
-        Returns: (batch, 7) tactically-corrected logits over columns.
+        x: (1, 2, 6, 7) float tensor. Returns (1, 7) negamax scores, with the
+        policy mixed in at low weight to break ties between equal moves.
         """
-        logits = self.policy_logits(x)
-        boards = (x[:, 0] - x[:, 1]).to(torch.int8).cpu().numpy()
-        bias = torch.from_numpy(tactical_bias(boards)).to(logits.device)
-        return logits + bias
+        board = (x[0, 0] - x[0, 1]).to(torch.int8)
+        scores = negamax_scores(self, board)
+        prior = F.softmax(self.policy_logits(x).squeeze(0), dim=0)
+        return (scores + SEARCH_PRIOR * prior).unsqueeze(0)
 
     def policy_logits(self, x):
         """Raw policy logits, no tactical correction (used during self-play)."""
