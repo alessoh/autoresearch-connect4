@@ -37,6 +37,7 @@ GAMMA = 0.99                # discount factor for returns
 EXPLORATION_RATE = 0.15     # fraction of random moves during self-play
 SELF_PLAY_RATIO = 0.7       # fraction of games that are self-play (rest vs opponents)
 ENTROPY_COEF = 0.03         # entropy bonus to prevent policy collapse
+VALUE_COEF = 0.5            # weight of the value-head regression loss
 GAMES_PER_BATCH = 64        # games to play before each training update
 DEVICE_BATCH_SIZE = 128     # max positions per forward pass during training
 
@@ -49,6 +50,10 @@ class ConnectFourNet(nn.Module):
     Policy-value network for Connect Four.
     Input: (batch, 2, 6, 7) — two channels (own pieces, opponent pieces).
     Output: (batch, 7) — logits over columns (policy head).
+
+    The value head predicts the game outcome in [-1, 1] from the perspective
+    of the player to move. forward() deliberately returns only the policy
+    logits, because prepare.play_game expects a plain (batch, 7) tensor.
     """
 
     def __init__(self):
@@ -73,6 +78,15 @@ class ConnectFourNet(nn.Module):
             nn.Linear(FC_HIDDEN, BOARD_COLS),
         )
 
+        # Value head
+        self.value_head = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(flat_size, FC_HIDDEN),
+            nn.ReLU(),
+            nn.Linear(FC_HIDDEN, 1),
+            nn.Tanh(),
+        )
+
     def forward(self, x):
         """
         x: (batch, 2, 6, 7) float tensor.
@@ -81,6 +95,15 @@ class ConnectFourNet(nn.Module):
         features = self.backbone(x)
         logits = self.policy_head(features)
         return logits
+
+    def policy_value(self, x):
+        """Returns ((batch, 7) logits, (batch,) values in [-1, 1])."""
+        features = self.backbone(x)
+        return self.policy_head(features), self.value_head(features).squeeze(1)
+
+    def value(self, x):
+        """Returns (batch,) values in [-1, 1] for the player to move."""
+        return self.value_head(self.backbone(x)).squeeze(1)
 
 
 # ---------------------------------------------------------------------------
@@ -183,8 +206,7 @@ def train_step(model, optimizer, batch_data, device):
 
     model.train()
 
-    # Compute baseline (mean reward) and normalize advantages
-    baseline = float(all_rewards.mean())
+    # Scale for the advantage, computed over the whole collection
     adv_std = float(all_rewards.std()) + 1e-8  # prevent division by zero
 
     # Process in mini-batches to manage memory
@@ -198,7 +220,7 @@ def train_step(model, optimizer, batch_data, device):
         rews = torch.from_numpy(all_rewards[sl]).to(device)
         chunk_size = len(actions)
 
-        logits = model(boards)
+        logits, values = model.policy_value(boards)
         log_probs = F.log_softmax(logits, dim=1)
         action_log_probs = log_probs.gather(1, actions.unsqueeze(1)).squeeze(1)
 
@@ -207,8 +229,8 @@ def train_step(model, optimizer, batch_data, device):
         # from dominating the gradient.
         action_log_probs = action_log_probs.clamp(min=-5.0)
 
-        # Normalized and clipped advantage: prevents loss from diverging
-        advantage = (rews - baseline) / adv_std
+        # Advantage against the learned value baseline, normalized and clipped
+        advantage = (rews - values.detach()) / adv_std
         advantage = advantage.clamp(-3.0, 3.0)
 
         # Policy gradient loss
@@ -217,7 +239,11 @@ def train_step(model, optimizer, batch_data, device):
         # Entropy bonus: prevents policy from collapsing to a single action
         probs = F.softmax(logits, dim=1)
         entropy = -(probs * log_probs).sum(dim=1).mean()
-        loss = pg_loss - ENTROPY_COEF * entropy
+
+        # Value head regresses the game outcome from the mover's perspective
+        value_loss = F.mse_loss(values, rews)
+
+        loss = pg_loss - ENTROPY_COEF * entropy + VALUE_COEF * value_loss
 
         optimizer.zero_grad()
         loss.backward()
