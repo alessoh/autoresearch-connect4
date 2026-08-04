@@ -9,6 +9,7 @@ import time
 import random
 from dataclasses import dataclass
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -86,117 +87,84 @@ class ConnectFourNet(nn.Module):
 # Self-play data collection
 # ---------------------------------------------------------------------------
 
-def collect_game_data(model, device, exploration_rate=EXPLORATION_RATE):
+def encode_boards(boards, perspectives):
     """
-    Play one game of self-play and collect (state, action, reward) tuples
-    from the perspective of each player.
-    Returns list of (board_tensor, action, reward) for the winning side,
-    and (board_tensor, action, -reward) for the losing side.
+    Vectorized board encoder — the batched equivalent of get_board_tensor.
+    boards: sequence of BOARD_ROWS x BOARD_COLS nested lists (or arrays).
+    perspectives: sequence of +1/-1, one per board.
+    Returns (n, 2, BOARD_ROWS, BOARD_COLS) float32 array: own pieces, then
+    opponent pieces.
     """
-    game = ConnectFourGame()
-    history = []  # (board_tensor, action, player)
-
-    model.eval()
-    with torch.no_grad():
-        while not game.game_over:
-            player = game.current_player
-            board_t = game.get_board_tensor(perspective=player)
-            valid_moves = game.get_valid_moves()
-
-            if random.random() < exploration_rate:
-                # Random exploration
-                col = random.choice(valid_moves)
-            else:
-                # Model choice
-                x = board_t.unsqueeze(0).to(device)
-                logits = model(x).squeeze(0)
-                # Mask invalid moves
-                mask = torch.full((BOARD_COLS,), -1e9, device=device)
-                for v in valid_moves:
-                    mask[v] = 0.0
-                logits = logits + mask
-                probs = F.softmax(logits, dim=0)
-                col = torch.multinomial(probs, 1).item()
-
-            history.append((board_t, col, player))
-            game.make_move(col)
-
-    # Assign rewards based on outcome
-    data = []
-    for board_t, action, player in history:
-        if game.winner == player:
-            reward = 1.0
-        elif game.winner == -player:
-            reward = -1.0
-        else:
-            reward = 0.0  # draw
-        data.append((board_t, action, reward))
-
-    return data
-
-
-def collect_opponent_game_data(model, opponent, device, exploration_rate=EXPLORATION_RATE):
-    """
-    Play one game between the model and a fixed opponent.
-    Collect training data only from the model's perspective.
-    """
-    game = ConnectFourGame()
-    model_player = 1 if random.random() < 0.5 else -1
-    history = []
-
-    model.eval()
-    with torch.no_grad():
-        while not game.game_over:
-            if game.current_player == model_player:
-                board_t = game.get_board_tensor(perspective=model_player)
-                valid_moves = game.get_valid_moves()
-
-                if random.random() < exploration_rate:
-                    col = random.choice(valid_moves)
-                else:
-                    x = board_t.unsqueeze(0).to(device)
-                    logits = model(x).squeeze(0)
-                    mask = torch.full((BOARD_COLS,), -1e9, device=device)
-                    for v in valid_moves:
-                        mask[v] = 0.0
-                    logits = logits + mask
-                    probs = F.softmax(logits, dim=0)
-                    col = torch.multinomial(probs, 1).item()
-
-                history.append((board_t, col))
-                game.make_move(col)
-            else:
-                col = opponent.choose_move(game)
-                game.make_move(col)
-
-    # Assign rewards
-    data = []
-    for board_t, action in history:
-        if game.winner == model_player:
-            reward = 1.0
-        elif game.winner == -model_player:
-            reward = -1.0
-        else:
-            reward = 0.0
-        data.append((board_t, action, reward))
-
-    return data
+    b = np.asarray(boards, dtype=np.int8).reshape(-1, BOARD_ROWS, BOARD_COLS)
+    p = np.asarray(perspectives, dtype=np.int8).reshape(-1, 1, 1)
+    x = np.empty((b.shape[0], 2, BOARD_ROWS, BOARD_COLS), dtype=np.float32)
+    x[:, 0] = b == p
+    x[:, 1] = b == -p
+    return x
 
 
 def collect_batch(model, device, num_games=GAMES_PER_BATCH):
-    """Collect a batch of training data from self-play and opponent play."""
-    all_data = []
+    """
+    Play num_games concurrently, batching every network forward into one call
+    per ply instead of one call per move. A fraction SELF_PLAY_RATIO of the
+    games are self-play; the rest are against the easy fixed opponents.
+    Returns (states, actions, rewards) as numpy arrays.
+    """
+    games = [ConnectFourGame() for _ in range(num_games)]
     num_self_play = int(num_games * SELF_PLAY_RATIO)
-    num_opponent = num_games - num_self_play
 
-    for _ in range(num_self_play):
-        all_data.extend(collect_game_data(model, device))
+    # model_side[i] is None for self-play (the model moves for both sides).
+    model_side = [None] * num_self_play
+    opponents = [None] * num_self_play
+    for _ in range(num_games - num_self_play):
+        model_side.append(1 if random.random() < 0.5 else -1)
+        opponents.append(random.choice(OPPONENTS[:2]))  # easier opponents while training
 
-    for _ in range(num_opponent):
-        opp = random.choice(OPPONENTS[:2])  # play against easier opponents during training
-        all_data.extend(collect_opponent_game_data(model, opp, device))
+    hist_board, hist_persp, hist_action, hist_game = [], [], [], []
 
-    return all_data
+    model.eval()
+    with torch.no_grad():
+        while True:
+            # Fixed opponents move first: they are pure Python and need no batching.
+            for i, g in enumerate(games):
+                if model_side[i] is not None and not g.game_over \
+                        and g.current_player != model_side[i]:
+                    g.make_move(opponents[i].choose_move(g))
+
+            active = [i for i, g in enumerate(games) if not g.game_over]
+            if not active:
+                break
+
+            boards = [games[i].board for i in active]
+            persps = [games[i].current_player for i in active]
+            x = torch.from_numpy(encode_boards(boards, persps)).to(device)
+            logits = model(x)
+
+            # Mask full columns (a column is full when its top cell is taken)
+            top = np.asarray([b[0] for b in boards], dtype=np.int8)
+            mask = np.where(top == 0, 0.0, -1e9).astype(np.float32)
+            logits = logits + torch.from_numpy(mask).to(device)
+            cols = torch.multinomial(F.softmax(logits, dim=1), 1).squeeze(1).tolist()
+
+            for j, i in enumerate(active):
+                g = games[i]
+                col = cols[j]
+                if random.random() < EXPLORATION_RATE:
+                    col = random.choice(g.get_valid_moves())
+                hist_board.append(np.asarray(g.board, dtype=np.int8))
+                hist_persp.append(g.current_player)
+                hist_action.append(col)
+                hist_game.append(i)
+                g.make_move(col)
+
+    # Terminal reward, from the perspective of whoever was to move
+    winners = np.array([g.winner for g in games], dtype=np.int8)[hist_game]
+    persps = np.array(hist_persp, dtype=np.int8)
+    rewards = np.where(winners == persps, 1.0,
+                       np.where(winners == -persps, -1.0, 0.0)).astype(np.float32)
+
+    states = encode_boards(hist_board, persps)
+    return states, np.array(hist_action, dtype=np.int64), rewards
 
 
 # ---------------------------------------------------------------------------
@@ -206,27 +174,29 @@ def collect_batch(model, device, num_games=GAMES_PER_BATCH):
 def train_step(model, optimizer, batch_data, device):
     """
     One training step using REINFORCE policy gradient.
-    batch_data: list of (board_tensor, action, reward)
+    batch_data: (states, actions, rewards) numpy arrays.
     """
-    if len(batch_data) == 0:
+    states, all_actions, all_rewards = batch_data
+    num_positions = len(all_actions)
+    if num_positions == 0:
         return 0.0
 
     model.train()
 
     # Compute baseline (mean reward) and normalize advantages
-    rewards = torch.tensor([d[2] for d in batch_data], dtype=torch.float32)
-    baseline = rewards.mean().item()
-    adv_std = rewards.std().item() + 1e-8  # prevent division by zero
+    baseline = float(all_rewards.mean())
+    adv_std = float(all_rewards.std()) + 1e-8  # prevent division by zero
 
     # Process in mini-batches to manage memory
     total_loss = 0.0
     num_samples = 0
 
-    for i in range(0, len(batch_data), DEVICE_BATCH_SIZE):
-        chunk = batch_data[i:i + DEVICE_BATCH_SIZE]
-        boards = torch.stack([d[0] for d in chunk]).to(device)
-        actions = torch.tensor([d[1] for d in chunk], dtype=torch.long, device=device)
-        rews = torch.tensor([d[2] for d in chunk], dtype=torch.float32, device=device)
+    for i in range(0, num_positions, DEVICE_BATCH_SIZE):
+        sl = slice(i, i + DEVICE_BATCH_SIZE)
+        boards = torch.from_numpy(states[sl]).to(device)
+        actions = torch.from_numpy(all_actions[sl]).to(device)
+        rews = torch.from_numpy(all_rewards[sl]).to(device)
+        chunk_size = len(actions)
 
         logits = model(boards)
         log_probs = F.log_softmax(logits, dim=1)
@@ -254,8 +224,8 @@ def train_step(model, optimizer, batch_data, device):
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
 
-        total_loss += loss.item() * len(chunk)
-        num_samples += len(chunk)
+        total_loss += loss.item() * chunk_size
+        num_samples += chunk_size
 
     return total_loss / max(num_samples, 1)
 
