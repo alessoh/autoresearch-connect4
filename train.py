@@ -324,6 +324,9 @@ while True:
 print(f"\nTraining complete: {step} steps, {total_games} games, "
       f"{total_training_time:.1f}s")
 
+# Checkpoint, so evaluation-time ideas can be tried without retraining
+torch.save(model.state_dict(), "model.pt")
+
 # ---------------------------------------------------------------------------
 # Evaluation
 # ---------------------------------------------------------------------------
