@@ -1,0 +1,14 @@
+698d5bb	0.153846	0.1	discard	depth-2 negamax at eval: arena d3 .14->.42 but official lost one_step half + both minimax
+ce0c635	0.384615	0.1	keep	exact 2-ply tactics on eval policy: arena one_step .68->.90 d3 .22->.36 d5 .08->.14 (official within noise)
+commit	win_rate	memory_gb	status	description
+6dc5701	0.229231	0.1	keep	baseline (apr3 fixes): random .98 one_step 1.00 minimax_d3 .00 minimax_d5 .00
+ddd0613	0.230769	0.1	keep	batched parallel self-play (one forward per ply): 429k games vs 38k, -35 lines
+91a795b	0.461538	0.1	keep	value head + A2C advantage + outcome regression: first minimax_d5 line won
+069310a	0.307692	0.1	discard	depth-3 negamax search at eval: won d3 line but lost d5 line + 50 draws vs one_step
+dfd5400	0.152308	0.1	discard	anneal exploration 0.15->0.02: much worse, lost one_step half + both minimax lines
+c65eca8	0.229231	0.1	keep	same training code as 91a795b + checkpoint save: 0.229 vs 0.462 => run variance is +-0.23
+58b6e86	0.615385	0.1	keep	self-play through the tactical policy (data matches eval): won a d3 and a d5 line, new best
+71aa8a8	1.000000	2.7	keep	depth-6 GPU negamax at eval: 400/400 wins, perfect score on every opponent
+71aa8a8	0.769231	2.7	keep	repeat of the same commit: 1.000 then 0.769 => depth-6 negamax is ~0.85 true, one d5 line still lost
+22d7732	1.000000	2.7	keep	mirror-flip half the training positions: 400/400 again
+22d7732	1.000000	2.7	discard	mirror aug: official 1.0 but pinned-ckpt arena a wash (d3 .83->.76 d5 .56->.62), +5 lines

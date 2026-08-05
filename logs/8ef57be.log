@@ -1,0 +1,247 @@
+Device: cuda
+Model parameters: 764,872
+Time budget: 300s
+Self-play ratio: 0.7
+Exploration rate: 0.15
+Entropy coef: 0.03
+Games per batch: 64
+
+step   10 | loss 0.3015 | games   640 | time 3s/300s
+step   20 | loss 0.3162 | games  1280 | time 5s/300s
+step   30 | loss 0.2859 | games  1920 | time 7s/300s
+step   40 | loss 0.2872 | games  2560 | time 9s/300s
+step   50 | loss 0.2959 | games  3200 | time 11s/300s
+step   60 | loss 0.2707 | games  3840 | time 13s/300s
+step   70 | loss 0.2796 | games  4480 | time 15s/300s
+step   80 | loss 0.3136 | games  5120 | time 17s/300s
+step   90 | loss 0.2871 | games  5760 | time 18s/300s
+step  100 | loss 0.2404 | games  6400 | time 20s/300s
+step  110 | loss 0.2940 | games  7040 | time 22s/300s
+step  120 | loss 0.3092 | games  7680 | time 23s/300s
+step  130 | loss 0.2715 | games  8320 | time 25s/300s
+step  140 | loss 0.2058 | games  8960 | time 27s/300s
+step  150 | loss 0.2242 | games  9600 | time 28s/300s
+step  160 | loss 0.2570 | games 10240 | time 30s/300s
+step  170 | loss 0.2364 | games 10880 | time 31s/300s
+step  180 | loss 0.2663 | games 11520 | time 33s/300s
+step  190 | loss 0.2642 | games 12160 | time 34s/300s
+step  200 | loss 0.2401 | games 12800 | time 36s/300s
+step  210 | loss 0.2568 | games 13440 | time 37s/300s
+step  220 | loss 0.2082 | games 14080 | time 39s/300s
+step  230 | loss 0.2573 | games 14720 | time 40s/300s
+step  240 | loss 0.2333 | games 15360 | time 41s/300s
+step  250 | loss 0.2251 | games 16000 | time 43s/300s
+step  260 | loss 0.2149 | games 16640 | time 44s/300s
+step  270 | loss 0.2397 | games 17280 | time 46s/300s
+step  280 | loss 0.2546 | games 17920 | time 47s/300s
+step  290 | loss 0.2534 | games 18560 | time 49s/300s
+step  300 | loss 0.2434 | games 19200 | time 50s/300s
+step  310 | loss 0.2701 | games 19840 | time 51s/300s
+step  320 | loss 0.2202 | games 20480 | time 53s/300s
+step  330 | loss 0.2394 | games 21120 | time 54s/300s
+step  340 | loss 0.2078 | games 21760 | time 55s/300s
+step  350 | loss 0.2125 | games 22400 | time 57s/300s
+step  360 | loss 0.2879 | games 23040 | time 58s/300s
+step  370 | loss 0.2246 | games 23680 | time 60s/300s
+step  380 | loss 0.2347 | games 24320 | time 61s/300s
+step  390 | loss 0.2535 | games 24960 | time 62s/300s
+step  400 | loss 0.2391 | games 25600 | time 64s/300s
+step  410 | loss 0.2262 | games 26240 | time 65s/300s
+step  420 | loss 0.2319 | games 26880 | time 66s/300s
+step  430 | loss 0.2261 | games 27520 | time 68s/300s
+step  440 | loss 0.2308 | games 28160 | time 69s/300s
+step  450 | loss 0.2214 | games 28800 | time 70s/300s
+step  460 | loss 0.2446 | games 29440 | time 72s/300s
+step  470 | loss 0.2345 | games 30080 | time 73s/300s
+step  480 | loss 0.2277 | games 30720 | time 75s/300s
+step  490 | loss 0.2554 | games 31360 | time 76s/300s
+step  500 | loss 0.2336 | games 32000 | time 77s/300s
+step  510 | loss 0.2409 | games 32640 | time 79s/300s
+step  520 | loss 0.2022 | games 33280 | time 80s/300s
+step  530 | loss 0.1930 | games 33920 | time 81s/300s
+step  540 | loss 0.1650 | games 34560 | time 83s/300s
+step  550 | loss 0.2112 | games 35200 | time 84s/300s
+step  560 | loss 0.2014 | games 35840 | time 85s/300s
+step  570 | loss 0.1623 | games 36480 | time 87s/300s
+step  580 | loss 0.2062 | games 37120 | time 88s/300s
+step  590 | loss 0.2163 | games 37760 | time 89s/300s
+step  600 | loss 0.2493 | games 38400 | time 91s/300s
+step  610 | loss 0.2449 | games 39040 | time 92s/300s
+step  620 | loss 0.2238 | games 39680 | time 93s/300s
+step  630 | loss 0.2076 | games 40320 | time 95s/300s
+step  640 | loss 0.2369 | games 40960 | time 96s/300s
+step  650 | loss 0.2394 | games 41600 | time 98s/300s
+step  660 | loss 0.2503 | games 42240 | time 99s/300s
+step  670 | loss 0.2317 | games 42880 | time 100s/300s
+step  680 | loss 0.2332 | games 43520 | time 102s/300s
+step  690 | loss 0.2214 | games 44160 | time 103s/300s
+step  700 | loss 0.2375 | games 44800 | time 104s/300s
+step  710 | loss 0.2486 | games 45440 | time 106s/300s
+step  720 | loss 0.2597 | games 46080 | time 107s/300s
+step  730 | loss 0.2045 | games 46720 | time 108s/300s
+step  740 | loss 0.2080 | games 47360 | time 110s/300s
+step  750 | loss 0.2249 | games 48000 | time 111s/300s
+step  760 | loss 0.2178 | games 48640 | time 112s/300s
+step  770 | loss 0.2160 | games 49280 | time 114s/300s
+step  780 | loss 0.2224 | games 49920 | time 115s/300s
+step  790 | loss 0.2062 | games 50560 | time 116s/300s
+step  800 | loss 0.1994 | games 51200 | time 118s/300s
+step  810 | loss 0.2145 | games 51840 | time 119s/300s
+step  820 | loss 0.2124 | games 52480 | time 120s/300s
+step  830 | loss 0.2277 | games 53120 | time 122s/300s
+step  840 | loss 0.1933 | games 53760 | time 123s/300s
+step  850 | loss 0.1528 | games 54400 | time 125s/300s
+step  860 | loss 0.1922 | games 55040 | time 126s/300s
+step  870 | loss 0.2209 | games 55680 | time 127s/300s
+step  880 | loss 0.2369 | games 56320 | time 129s/300s
+step  890 | loss 0.2153 | games 56960 | time 130s/300s
+step  900 | loss 0.2330 | games 57600 | time 131s/300s
+step  910 | loss 0.2084 | games 58240 | time 133s/300s
+step  920 | loss 0.1950 | games 58880 | time 134s/300s
+step  930 | loss 0.2161 | games 59520 | time 135s/300s
+step  940 | loss 0.2130 | games 60160 | time 137s/300s
+step  950 | loss 0.1999 | games 60800 | time 138s/300s
+step  960 | loss 0.2071 | games 61440 | time 139s/300s
+step  970 | loss 0.1907 | games 62080 | time 141s/300s
+step  980 | loss 0.1714 | games 62720 | time 142s/300s
+step  990 | loss 0.1828 | games 63360 | time 144s/300s
+step 1000 | loss 0.1908 | games 64000 | time 145s/300s
+step 1010 | loss 0.1851 | games 64640 | time 146s/300s
+step 1020 | loss 0.2159 | games 65280 | time 147s/300s
+step 1030 | loss 0.1786 | games 65920 | time 149s/300s
+step 1040 | loss 0.1742 | games 66560 | time 150s/300s
+step 1050 | loss 0.1824 | games 67200 | time 151s/300s
+step 1060 | loss 0.1696 | games 67840 | time 153s/300s
+step 1070 | loss 0.1900 | games 68480 | time 154s/300s
+step 1080 | loss 0.1802 | games 69120 | time 155s/300s
+step 1090 | loss 0.1632 | games 69760 | time 157s/300s
+step 1100 | loss 0.1596 | games 70400 | time 158s/300s
+step 1110 | loss 0.1644 | games 71040 | time 159s/300s
+step 1120 | loss 0.1585 | games 71680 | time 161s/300s
+step 1130 | loss 0.1358 | games 72320 | time 162s/300s
+step 1140 | loss 0.1571 | games 72960 | time 163s/300s
+step 1150 | loss 0.1634 | games 73600 | time 165s/300s
+step 1160 | loss 0.1727 | games 74240 | time 166s/300s
+step 1170 | loss 0.1636 | games 74880 | time 167s/300s
+step 1180 | loss 0.1787 | games 75520 | time 169s/300s
+step 1190 | loss 0.1599 | games 76160 | time 170s/300s
+step 1200 | loss 0.1756 | games 76800 | time 172s/300s
+step 1210 | loss 0.1481 | games 77440 | time 173s/300s
+step 1220 | loss 0.1566 | games 78080 | time 174s/300s
+step 1230 | loss 0.1806 | games 78720 | time 176s/300s
+step 1240 | loss 0.2076 | games 79360 | time 177s/300s
+step 1250 | loss 0.2025 | games 80000 | time 178s/300s
+step 1260 | loss 0.1949 | games 80640 | time 180s/300s
+step 1270 | loss 0.1831 | games 81280 | time 181s/300s
+step 1280 | loss 0.1703 | games 81920 | time 182s/300s
+step 1290 | loss 0.2133 | games 82560 | time 184s/300s
+step 1300 | loss 0.1590 | games 83200 | time 185s/300s
+step 1310 | loss 0.1652 | games 83840 | time 186s/300s
+step 1320 | loss 0.1794 | games 84480 | time 188s/300s
+step 1330 | loss 0.1914 | games 85120 | time 189s/300s
+step 1340 | loss 0.1669 | games 85760 | time 190s/300s
+step 1350 | loss 0.1794 | games 86400 | time 192s/300s
+step 1360 | loss 0.1820 | games 87040 | time 193s/300s
+step 1370 | loss 0.1676 | games 87680 | time 194s/300s
+step 1380 | loss 0.1623 | games 88320 | time 196s/300s
+step 1390 | loss 0.1772 | games 88960 | time 197s/300s
+step 1400 | loss 0.2291 | games 89600 | time 198s/300s
+step 1410 | loss 0.2093 | games 90240 | time 200s/300s
+step 1420 | loss 0.2086 | games 90880 | time 201s/300s
+step 1430 | loss 0.1876 | games 91520 | time 202s/300s
+step 1440 | loss 0.1787 | games 92160 | time 204s/300s
+step 1450 | loss 0.1691 | games 92800 | time 205s/300s
+step 1460 | loss 0.1774 | games 93440 | time 206s/300s
+step 1470 | loss 0.1646 | games 94080 | time 208s/300s
+step 1480 | loss 0.1718 | games 94720 | time 209s/300s
+step 1490 | loss 0.1884 | games 95360 | time 210s/300s
+step 1500 | loss 0.1732 | games 96000 | time 212s/300s
+step 1510 | loss 0.2019 | games 96640 | time 213s/300s
+step 1520 | loss 0.1723 | games 97280 | time 215s/300s
+step 1530 | loss 0.1854 | games 97920 | time 216s/300s
+step 1540 | loss 0.1750 | games 98560 | time 217s/300s
+step 1550 | loss 0.1829 | games 99200 | time 218s/300s
+step 1560 | loss 0.1744 | games 99840 | time 220s/300s
+step 1570 | loss 0.1604 | games 100480 | time 221s/300s
+step 1580 | loss 0.1739 | games 101120 | time 223s/300s
+step 1590 | loss 0.1658 | games 101760 | time 224s/300s
+step 1600 | loss 0.1943 | games 102400 | time 225s/300s
+step 1610 | loss 0.1850 | games 103040 | time 227s/300s
+step 1620 | loss 0.1681 | games 103680 | time 228s/300s
+step 1630 | loss 0.1649 | games 104320 | time 229s/300s
+step 1640 | loss 0.1833 | games 104960 | time 231s/300s
+step 1650 | loss 0.1779 | games 105600 | time 232s/300s
+step 1660 | loss 0.1913 | games 106240 | time 233s/300s
+step 1670 | loss 0.1962 | games 106880 | time 235s/300s
+step 1680 | loss 0.2084 | games 107520 | time 236s/300s
+step 1690 | loss 0.1965 | games 108160 | time 237s/300s
+step 1700 | loss 0.1773 | games 108800 | time 239s/300s
+step 1710 | loss 0.1818 | games 109440 | time 240s/300s
+step 1720 | loss 0.1795 | games 110080 | time 241s/300s
+step 1730 | loss 0.2193 | games 110720 | time 243s/300s
+step 1740 | loss 0.1933 | games 111360 | time 244s/300s
+step 1750 | loss 0.1819 | games 112000 | time 245s/300s
+step 1760 | loss 0.1903 | games 112640 | time 247s/300s
+step 1770 | loss 0.2081 | games 113280 | time 248s/300s
+step 1780 | loss 0.2030 | games 113920 | time 250s/300s
+step 1790 | loss 0.2326 | games 114560 | time 251s/300s
+step 1800 | loss 0.1965 | games 115200 | time 252s/300s
+step 1810 | loss 0.2020 | games 115840 | time 254s/300s
+step 1820 | loss 0.1948 | games 116480 | time 255s/300s
+step 1830 | loss 0.1469 | games 117120 | time 256s/300s
+step 1840 | loss 0.1861 | games 117760 | time 258s/300s
+step 1850 | loss 0.1781 | games 118400 | time 259s/300s
+step 1860 | loss 0.1869 | games 119040 | time 260s/300s
+step 1870 | loss 0.1818 | games 119680 | time 262s/300s
+step 1880 | loss 0.1871 | games 120320 | time 263s/300s
+step 1890 | loss 0.1840 | games 120960 | time 265s/300s
+step 1900 | loss 0.1969 | games 121600 | time 266s/300s
+step 1910 | loss 0.1364 | games 122240 | time 267s/300s
+step 1920 | loss 0.1572 | games 122880 | time 269s/300s
+step 1930 | loss 0.1838 | games 123520 | time 270s/300s
+step 1940 | loss 0.1508 | games 124160 | time 271s/300s
+step 1950 | loss 0.1691 | games 124800 | time 273s/300s
+step 1960 | loss 0.1714 | games 125440 | time 274s/300s
+step 1970 | loss 0.1536 | games 126080 | time 275s/300s
+step 1980 | loss 0.1720 | games 126720 | time 277s/300s
+step 1990 | loss 0.1728 | games 127360 | time 278s/300s
+step 2000 | loss 0.1738 | games 128000 | time 279s/300s
+step 2010 | loss 0.1669 | games 128640 | time 281s/300s
+step 2020 | loss 0.1574 | games 129280 | time 282s/300s
+step 2030 | loss 0.1746 | games 129920 | time 284s/300s
+step 2040 | loss 0.2053 | games 130560 | time 285s/300s
+step 2050 | loss 0.1859 | games 131200 | time 286s/300s
+step 2060 | loss 0.1874 | games 131840 | time 288s/300s
+step 2070 | loss 0.1754 | games 132480 | time 289s/300s
+step 2080 | loss 0.1696 | games 133120 | time 290s/300s
+step 2090 | loss 0.1696 | games 133760 | time 292s/300s
+step 2100 | loss 0.1962 | games 134400 | time 293s/300s
+step 2110 | loss 0.1729 | games 135040 | time 294s/300s
+step 2120 | loss 0.1494 | games 135680 | time 296s/300s
+step 2130 | loss 0.1704 | games 136320 | time 297s/300s
+step 2140 | loss 0.2013 | games 136960 | time 298s/300s
+step 2150 | loss 0.2040 | games 137600 | time 300s/300s
+
+Training complete: 2152 steps, 137728 games, 300.1s
+
+Evaluating against opponent suite...
+
+Per-opponent results:
+  random         : 1.000 win_rate (100W 0L 0D / 100)
+  one_step       : 1.000 win_rate (100W 0L 0D / 100)
+  minimax_d3     : 1.000 win_rate (100W 0L 0D / 100)
+  minimax_d5     : 0.000 win_rate (0W 100L 0D / 100)
+
+---
+win_rate:          0.538462
+training_seconds:  300.1
+total_seconds:     428.6
+eval_seconds:      127.6
+peak_vram_mb:      2800.9
+total_games:       137728
+num_steps:         2152
+num_params:        764872
+conv_layers:       3
+conv_channels:     64
+fc_hidden:         128
+entropy_coef:      0.03

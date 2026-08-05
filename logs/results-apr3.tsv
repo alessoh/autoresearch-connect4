@@ -1,0 +1,2 @@
+commit	win_rate	memory_gb	status	description
+0a2dfad	0.226923	0.1	keep	stable REINFORCE: clip advs+logprobs, entropy 0.03, opponent mix 70/30, LR 0.0005

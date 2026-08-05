@@ -1,0 +1,90 @@
+Device: cuda
+Model parameters: 420,551
+Time budget: 300s
+Self-play ratio: 0.7
+Exploration rate: 0.15
+Entropy coef: 0.03
+Games per batch: 64
+
+step   10 | loss -0.0834 | games   640 | time 6s/300s
+step   20 | loss -0.2004 | games  1280 | time 11s/300s
+step   30 | loss -0.2484 | games  1920 | time 17s/300s
+step   40 | loss -0.3213 | games  2560 | time 21s/300s
+step   50 | loss -0.3180 | games  3200 | time 27s/300s
+step   60 | loss -0.3124 | games  3840 | time 32s/300s
+step   70 | loss -0.2923 | games  4480 | time 37s/300s
+step   80 | loss -0.3052 | games  5120 | time 42s/300s
+step   90 | loss -0.3223 | games  5760 | time 47s/300s
+step  100 | loss -0.3734 | games  6400 | time 52s/300s
+step  110 | loss -0.3764 | games  7040 | time 57s/300s
+step  120 | loss -0.2955 | games  7680 | time 61s/300s
+step  130 | loss -0.3182 | games  8320 | time 66s/300s
+step  140 | loss -0.3146 | games  8960 | time 71s/300s
+step  150 | loss -0.2971 | games  9600 | time 75s/300s
+step  160 | loss -0.2358 | games 10240 | time 80s/300s
+step  170 | loss -0.1521 | games 10880 | time 84s/300s
+step  180 | loss -0.1909 | games 11520 | time 89s/300s
+step  190 | loss -0.2702 | games 12160 | time 93s/300s
+step  200 | loss -0.2727 | games 12800 | time 98s/300s
+step  210 | loss -0.1644 | games 13440 | time 103s/300s
+step  220 | loss -0.1547 | games 14080 | time 108s/300s
+step  230 | loss -0.2393 | games 14720 | time 113s/300s
+step  240 | loss -0.2632 | games 15360 | time 118s/300s
+step  250 | loss -0.2374 | games 16000 | time 124s/300s
+step  260 | loss -0.2354 | games 16640 | time 129s/300s
+step  270 | loss -0.2479 | games 17280 | time 134s/300s
+step  280 | loss -0.1944 | games 17920 | time 140s/300s
+step  290 | loss -0.2141 | games 18560 | time 144s/300s
+step  300 | loss -0.2135 | games 19200 | time 149s/300s
+step  310 | loss -0.2372 | games 19840 | time 154s/300s
+step  320 | loss -0.2643 | games 20480 | time 158s/300s
+step  330 | loss -0.2401 | games 21120 | time 163s/300s
+step  340 | loss -0.2353 | games 21760 | time 168s/300s
+step  350 | loss -0.2474 | games 22400 | time 173s/300s
+step  360 | loss -0.2528 | games 23040 | time 178s/300s
+step  370 | loss -0.2494 | games 23680 | time 184s/300s
+step  380 | loss -0.2384 | games 24320 | time 188s/300s
+step  390 | loss -0.2711 | games 24960 | time 193s/300s
+step  400 | loss -0.2644 | games 25600 | time 199s/300s
+step  410 | loss -0.2513 | games 26240 | time 205s/300s
+step  420 | loss -0.2816 | games 26880 | time 210s/300s
+step  430 | loss -0.2738 | games 27520 | time 215s/300s
+step  440 | loss -0.2359 | games 28160 | time 221s/300s
+step  450 | loss -0.2245 | games 28800 | time 226s/300s
+step  460 | loss -0.2515 | games 29440 | time 232s/300s
+step  470 | loss -0.2118 | games 30080 | time 237s/300s
+step  480 | loss -0.1938 | games 30720 | time 243s/300s
+step  490 | loss -0.2207 | games 31360 | time 248s/300s
+step  500 | loss -0.1951 | games 32000 | time 254s/300s
+step  510 | loss -0.2145 | games 32640 | time 259s/300s
+step  520 | loss -0.1880 | games 33280 | time 264s/300s
+step  530 | loss -0.1835 | games 33920 | time 270s/300s
+step  540 | loss -0.1687 | games 34560 | time 275s/300s
+step  550 | loss -0.2126 | games 35200 | time 280s/300s
+step  560 | loss -0.1935 | games 35840 | time 284s/300s
+step  570 | loss -0.1873 | games 36480 | time 290s/300s
+step  580 | loss -0.2089 | games 37120 | time 295s/300s
+
+Training complete: 589 steps, 37696 games, 300.3s
+
+Evaluating against opponent suite...
+
+Per-opponent results:
+  random         : 0.980 win_rate (98W 2L 0D / 100)
+  one_step       : 1.000 win_rate (100W 0L 0D / 100)
+  minimax_d3     : 0.000 win_rate (0W 100L 0D / 100)
+  minimax_d5     : 0.000 win_rate (0W 100L 0D / 100)
+
+---
+win_rate:          0.229231
+training_seconds:  300.3
+total_seconds:     337.6
+eval_seconds:      36.3
+peak_vram_mb:      89.1
+total_games:       37696
+num_steps:         589
+num_params:        420551
+conv_layers:       3
+conv_channels:     64
+fc_hidden:         128
+entropy_coef:      0.03
